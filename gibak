@@ -17,6 +17,10 @@
 # along with this program.  If not, see
 # <http://www.gnu.org/licenses/>.
 
+export PATH=$HOME/bin:$PATH
+export GIT_DIR=$HOME/.gibak
+export GIT_WORK_TREE=$HOME
+
 version="0.3.0"
 
 if ! which git &>/dev/null; then
@@ -32,6 +36,7 @@ SCRIPT_NAME="${var##*/}"
 ORIG_DIR="$PWD"
 # Remember that all actions here are to be made in $HOME dir!
 cd $HOME
+mkdir -p $GIT_DIR
 
 # We don't want users complaining.  by default, top permissions
 # "security"
@@ -42,7 +47,7 @@ umask 077
 # .git' would make it impossible to have the first commit save its
 # data to a remote mount.  (Since .git has to exist, as a mountpoint)
 function __has_initialized(){
-    test -e .git/objects;
+    test -e $GIT_DIR/objects;
     return $?
 }
 
@@ -76,18 +81,18 @@ function __handle_git_repositories() {
     __abort_on_not_initialized
     cd_to_toplevel
     echo "Managing submodules." >&2
-    rm -f .gitmodules
-    local base=.git/git-repositories
+    rm -f $GIT_DIR/.gitmodules
+    local base=$GIT_DIR/git-repositories
     mkdir -p "$base"
     find-git-repos -i -z | while read -d $'\0' rep; do
 	echo "  submodule $rep" >&2
 	rsync -a -F --relative --delete-excluded --delete-after \
 	    "$rep" "$base"
 	printf '[submodule "%s"]\n\tpath = %s\n\turl= %s\n' \
-	    "$rep" "$rep" "$base/$rep/.git" >> .gitmodules
+	    "$rep" "$rep" "$base/$rep/.git" >> $GIR_DIR/.gitmodules
     done
-    touch .gitmodules
-    git add -f .gitmodules
+    touch $GIT_DIR/.gitmodules
+    git add -f $GIT_DIR/.gitmodules
     git submodule init
 }
 
@@ -96,10 +101,10 @@ function init() {
 
     # I know it's the default... but let's be explicit!
     git init --shared=umask
-    chmod -R u+rwX,go-rwx .git
+    chmod -R u+rwX,go-rwx $GIT_DIR/.git
 
     # Add a gitweb description
-    echo "git-home-history of $HOME on $HOSTNAME" > .git/description
+    echo "git-home-history of $HOME on $HOSTNAME" > $GIT_DIR/description
 
     # Make sure there is a 'name' field in config... some git scripts
     # complain if not
@@ -114,12 +119,12 @@ function init() {
     XDG_VIDEOS_DIR=$( echo ${XDG_VIDEOS_DIR#${HOME}} | sed 's:^/*::' )
     XDG_MUSIC_DIR=$( echo ${XDG_MUSIC_DIR#${HOME}} | sed 's:^/*::' )
 
-    mkdir .git-hooks || die "Couldn't create .git-hooks directory."
+    mkdir -p $GIT_DIR/.git-hooks || die "Couldn't create .git-hooks directory."
 
     # Set up pre-commit hook.  We link to .git-hooks, rather than writing 
     # the hook directly to .git/hooks, so that the hook files will be 
     # versioned by git, and cloned easily to other machines.
-    cat << EOF > .git-hooks/pre-commit
+    cat << EOF > $GIT_DIR/.git-hooks/pre-commit
         
 #!/bin/sh
 
@@ -129,10 +134,10 @@ if [[ "\$SKIP_OMETASTORE" == "" ]]; then
 fi
 EOF
 
-    ln -s .git-hooks/pre-commit .git/hooks
+    ln -s $GIT_DIR/.git-hooks/pre-commit $GIT_DIR/hooks
 
     # Set up post-checkout hook
-    cat << EOF > .git-hooks/post-checkout
+    cat << EOF > $GIT_DIR/.git-hooks/post-checkout
 #!/bin/sh
 
 if [[ "\$SKIP_OMETASTORE" == "" ]]; then
@@ -140,10 +145,10 @@ if [[ "\$SKIP_OMETASTORE" == "" ]]; then
 fi
 EOF
 
-    ln -s .git-hooks/post-checkout .git/hooks
+    ln -s $GIT_DIR/.git-hooks/post-checkout $GIT_DIR/hooks
     
     # Create sample .gitignore if one isn't present
-    test -e .gitignore || cat << EOF > .gitignore
+    test -e $GIT_DIR/.gitignore || cat << EOF > $GIT_DIR/.gitignore
 #
 # Here are some examples of what you might want to ignore
 # in your git-home-history.  Feel free to modify.
@@ -201,10 +206,10 @@ EOF
 
 EOF
 
-    git add -f .gitignore
-    git add -f .git-hooks
-    chmod u+x .git-hooks/pre-commit
-    chmod u+x .git-hooks/post-checkout
+    git add -f $GIT_DIR/.gitignore
+    git add -f $GIT_DIR/.git-hooks
+    chmod u+x $GIT_DIR/.git-hooks/pre-commit
+    chmod u+x $GIT_DIR/.git-hooks/post-checkout
     git commit -q -a -m "Initialized by $SCRIPT_NAME"
     echo
     echo "You might be interested in tweaking the ~/.gitignore file"
@@ -219,8 +224,8 @@ function rm_all() {
         # mounted/linked .git from somewhere else.  Removing the link
         # would silently break what the user was expecting; removing a
         # device mountpoint will fail anyway.
-	rm -rf .git/* 2>/dev/null
-	#rm -rf .gitignore 2>/dev/null
+	rm -rf $GIT_DIR/* 2>/dev/null
+	#rm -rf $GIT_DIR/.gitignore 2>/dev/null
     else
 	echo "Nothing to do"
     fi
@@ -286,7 +291,7 @@ function rm_older_than() {
     # large, obsolete binary files"
 
     git reset --soft # was '--hard' on the post...
-    rm -rf .git/refs/original/
+    rm -rf $GIT_DIR/refs/original/
     #vi .git/packed-refs # Use vi to remove the line referring to
     # refs/original...  No need since we have linear, no tags, nothing
     # special
@@ -333,7 +338,7 @@ function archive_to() {
 
     echo "Saving archive to '$output'" >&2
     echo "This may take a long time" >&2
-    tar -cpf - .git | gpg -c --output "$output"
+    tar -cpf - $GIT_DIR/.git | gpg -c --output "$output"
 }
 
 
