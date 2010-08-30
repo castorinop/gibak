@@ -32,7 +32,8 @@ fi
 # Autotools defines
 MANDIR="/usr/local/share/man"
 
-SCRIPT_NAME="${var##*/}"
+SCRIPT_NAME="${var##*/}" # this work for you ?
+SCRIPT_NAME="$0"
 ORIG_DIR="$PWD"
 # Remember that all actions here are to be made in $HOME dir!
 cd $HOME
@@ -85,11 +86,12 @@ function __handle_git_repositories() {
     local base=$GIT_DIR/git-repositories
     mkdir -p "$base"
     find-git-repos -i -z | while read -d $'\0' rep; do
+	[ "$rep" == ".gibak" ] && continue
 	echo "  submodule $rep" >&2
 	rsync -a -F --relative --delete-excluded --delete-after \
 	    "$rep" "$base"
 	printf '[submodule "%s"]\n\tpath = %s\n\turl= %s\n' \
-	    "$rep" "$rep" "$base/$rep/.git" >> $GIR_DIR/.gitmodules
+	    "$rep" "$rep" "$base/$rep/.git" >> $GIT_DIR/.gitmodules
     done
     touch $GIT_DIR/.gitmodules
     git add -f $GIT_DIR/.gitmodules
@@ -101,7 +103,7 @@ function init() {
 
     # I know it's the default... but let's be explicit!
     git init --shared=umask
-    chmod -R u+rwX,go-rwx $GIT_DIR/.git
+    chmod -R u+rwX,go-rwx $GIT_DIR
 
     # Add a gitweb description
     echo "git-home-history of $HOME on $HOSTNAME" > $GIT_DIR/description
@@ -148,7 +150,7 @@ EOF
     ln -s $GIT_DIR/.git-hooks/post-checkout $GIT_DIR/hooks
     
     # Create sample .gitignore if one isn't present
-    test -e $GIT_DIR/.gitignore || cat << EOF > $GIT_DIR/.gitignore
+    test -e $GIT_WORK_TREE/.gitignore || cat << EOF > $GIT_WORK_TREE/.gitignore
 #
 # Here are some examples of what you might want to ignore
 # in your git-home-history.  Feel free to modify.
@@ -206,7 +208,7 @@ EOF
 
 EOF
 
-    git add -f $GIT_DIR/.gitignore
+    git add -f $GIT_WORK_TREE/.gitignore
     git add -f $GIT_DIR/.git-hooks
     chmod u+x $GIT_DIR/.git-hooks/pre-commit
     chmod u+x $GIT_DIR/.git-hooks/post-checkout
