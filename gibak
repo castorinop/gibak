@@ -340,7 +340,7 @@ function archive_to() {
 
     echo "Saving archive to '$output'" >&2
     echo "This may take a long time" >&2
-    tar -cpf - $GIT_DIR/.git | gpg -c --output "$output"
+    tar -cpf - $GIT_DIR | gpg -c --output "$output"
 }
 
 
