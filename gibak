@@ -33,6 +33,17 @@ export GIT_WORK_TREE
 
 version="0.3.0"
 
+# LOCK 
+GIBAK_LOCK=$GIT_DIR/gibak.lock
+
+if [ -e "$GIBAK_LOCK" -a "$1" == "commit" ]; then
+   echo already running...
+   exit 1
+fi
+
+trap "{ rm -f $GIBAK_LOCK ; }" EXIT
+touch $GIBAK_LOCK;
+
 if ! which git &>/dev/null; then
     echo "Please Git" >&2
     echo "See http://git.or.cz for more information about Git" >&2
