@@ -17,9 +17,19 @@
 # along with this program.  If not, see
 # <http://www.gnu.org/licenses/>.
 
+
+GIT_DIR=$HOME/.gibak
+GIT_WORK_TREE=$HOME
+GB_CFG=$HOME/.gibak/gibak.cfg
+if [ -e $GB_CFG ]; then
+	echo "Loding config..." >&2
+	. $GB_CFG
+fi
+
 export PATH=$HOME/bin:$PATH
-export GIT_DIR=$HOME/.gibak
-export GIT_WORK_TREE=$HOME
+export GIT_DIR
+export GIT_WORK_TREE
+
 
 version="0.3.0"
 
@@ -219,6 +229,34 @@ EOF
     echo "Please run '$SCRIPT_NAME commit' to save a first state in your history"
 }
 
+function fix-hooks() {
+
+    rm -f $GIT_DIR/hooks/pre-commit
+    rm -f $GIT_DIR/hooks/post-checkout
+
+    # Set up pre-commit hook. 
+    cat << EOF > $GIT_DIR/hooks/pre-commit
+#!/bin/bash
+
+if [[ "\$SKIP_OMETASTORE" == "" ]]; then
+    ometastore -s -x -i -m --sort
+    git add -f .ometastore
+fi
+EOF
+
+    # Set up post-checkout hook
+    cat << EOF > $GIT_DIR/hooks/post-checkout
+#!/bin/bash
+
+if [[ "\$SKIP_OMETASTORE" == "" ]]; then
+    ometastore -a -x -i -m
+fi
+EOF
+    
+    chmod u+x $GIT_DIR/hooks/pre-commit
+    chmod u+x $GIT_DIR/hooks/post-checkout
+}
+
 function rm_all() {
     if __has_initialized; then
 	echo "Removing all git-home-history data, this may take some time "
@@ -399,6 +437,9 @@ case "$1" in
 	fi
 	commit
 	;;
+    fix-hooks)
+	fix-hooks
+	;;
     init)
 	init
 	;;
@@ -508,6 +549,7 @@ case "$1" in
 	echo "    help"
 	echo "    init"
 	echo "    commit"
+	echo "    fix-hooks"
 	echo "    eat <file_or_dir>"
 	echo "    show <file> as of <time_spec>"
 	echo "    ls-changed-files"
