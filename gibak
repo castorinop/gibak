@@ -135,6 +135,10 @@ function init() {
 	  git config user.name "$USER"
     fi
 
+	set-config
+
+    fix-hooks
+
     # Check for xdg-user-dirs to provide sane defaults in .gitignore
     # http://www.freedesktop.org/wiki/Software/xdg-user-dirs
     test -f ${XDG_CONFIG_HOME:-~/.config}/user-dirs.dirs && source ${XDG_CONFIG_HOME:-~/.config}/user-dirs.dirs
@@ -142,33 +146,6 @@ function init() {
     XDG_VIDEOS_DIR=$( echo ${XDG_VIDEOS_DIR#${HOME}} | sed 's:^/*::' )
     XDG_MUSIC_DIR=$( echo ${XDG_MUSIC_DIR#${HOME}} | sed 's:^/*::' )
 
-    mkdir -p $GIT_DIR/.git-hooks || die "Couldn't create .git-hooks directory."
-
-    # Set up pre-commit hook.  We link to .git-hooks, rather than writing 
-    # the hook directly to .git/hooks, so that the hook files will be 
-    # versioned by git, and cloned easily to other machines.
-    cat << EOF > $GIT_DIR/.git-hooks/pre-commit
-        
-#!/bin/sh
-
-if [[ "\$SKIP_OMETASTORE" == "" ]]; then
-    ometastore -s -x -i -m --sort
-    git add -f .ometastore
-fi
-EOF
-
-    ln -s $GIT_DIR/.git-hooks/pre-commit $GIT_DIR/hooks
-
-    # Set up post-checkout hook
-    cat << EOF > $GIT_DIR/.git-hooks/post-checkout
-#!/bin/sh
-
-if [[ "\$SKIP_OMETASTORE" == "" ]]; then
-    ometastore -a -x -i -m
-fi
-EOF
-
-    ln -s $GIT_DIR/.git-hooks/post-checkout $GIT_DIR/hooks
     
     # Create sample .gitignore if one isn't present
     test -e $GIT_WORK_TREE/.gitignore || cat << EOF > $GIT_WORK_TREE/.gitignore
@@ -230,9 +207,7 @@ EOF
 EOF
 
     git add -f $GIT_WORK_TREE/.gitignore
-    git add -f $GIT_DIR/.git-hooks
-    chmod u+x $GIT_DIR/.git-hooks/pre-commit
-    chmod u+x $GIT_DIR/.git-hooks/post-checkout
+
     git commit -q -a -m "Initialized by $SCRIPT_NAME"
     echo
     echo "You might be interested in tweaking the ~/.gitignore file"
@@ -240,9 +215,20 @@ EOF
     echo "Please run '$SCRIPT_NAME commit' to save a first state in your history"
 }
 
+function set-config() {
+	# BUG git use too much memory
+	# FIX limit memory, a little slow.
+	git config pack.windowMemory 32M
+	git config core.packagedGitLimit 256M
+	git config core.packagedGitWindowSize = 32m
+	git config deltaCacheSize = 1
+
+}
+
 function fix-hooks() {
 
     rm -f $GIT_DIR/hooks/pre-commit
+    rm -f $GIT_DIR/hooks/post-commit
     rm -f $GIT_DIR/hooks/post-checkout
 
     # Set up pre-commit hook. 
@@ -256,6 +242,14 @@ fi
 EOF
 
     # Set up post-checkout hook
+    cat << EOF > $GIT_DIR/hooks/post-commit
+#!/bin/bash
+
+gibak push > $GIT_DIR/post-commit.log
+
+EOF
+
+    # Set up post-checkout hook
     cat << EOF > $GIT_DIR/hooks/post-checkout
 #!/bin/bash
 
@@ -265,6 +259,7 @@ fi
 EOF
     
     chmod u+x $GIT_DIR/hooks/pre-commit
+    chmod u+x $GIT_DIR/hooks/post-commit
     chmod u+x $GIT_DIR/hooks/post-checkout
 }
 
@@ -451,6 +446,10 @@ case "$1" in
     fix-hooks)
 	fix-hooks
 	;;
+    fix-config)
+    set-config)
+	set-config
+	;;
     init)
 	init
 	;;
@@ -548,6 +547,26 @@ case "$1" in
 		echo "Could not find manpage" >&2
 	    fi
 	fi
+	;;
+	mirror)
+		if [ -z "$MIRROR_PROTO" -o -z "$MIRROR_HOST" -o -z "$MIRROR_DIR" ]; then
+			echo "error cfg, needs MIRROR_PROTO, MIRRROR_HOST and MIRROR_DIR" >&2
+			exit 1;
+		fi
+		
+		if [ "$MIRROR_PROTO" == "ssh" ]; then 
+			ssh $MIRROR_HOST "mkdir $MIRROR_DIR"
+			ssh $MIRROR_HOST "cd $MIRROR_DIR && git --bare init"
+		fi
+		git remote add origin $PROTO://$HOST/$HOST_DIR
+	;;
+	push)
+		if [ -n "$MIRROR_PROTO" -a -n "$MIRROR_HOST" -a -n "$MIRROR_DIR" ]; then
+			git push $2 origin master
+		fi
+	;;
+	log)
+		git log
 	;;
     --version)
 	echo "gibak version $version"
