@@ -311,11 +311,11 @@ function rm_older_than() {
     __abort_on_not_initialized
     local time_spec="$@"
 
-    if ! which git filter-branch &>/dev/null; then
-	echo "Please install a recent version of Git" >&2
-	echo "See http://git.or.cz for more information about Git" >&2
-	exit 1
-    fi
+#    if ! which git filter-branch &>/dev/null; then
+#	echo "Please install a recent version of Git" >&2
+#	echo "See http://git.or.cz for more information about Git" >&2
+#	exit 1
+#    fi
 
     if test $(git rev-parse "HEAD@{$time_spec}") = "$(git rev-parse HEAD)"; then
 	local TMOUT=20
