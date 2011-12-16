@@ -572,7 +572,7 @@ case "$1" in
 	echo "gibak version $version"
 	exit 0
 	;;
-    *)
+    usage)
 	echo "usage: $SCRIPT_NAME <action>"
 	echo
 	echo "<action> can be:"
@@ -600,6 +600,10 @@ case "$1" in
 	echo "see 'man gibak' for more information"
 	exit 1
 	;;
+	*)
+		git $@
+	;;
 esac
 exit 0
+
 # vim: set noexpandtab sw=4:
